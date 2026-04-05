@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Карта ДМРЛ</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            height: 100%;
+            font-family: sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+            background: #f0f0f0;
+        }
+        .info-panel {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(4px);
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            width: 280px;
+            max-width: calc(100% - 30px);
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 1000;
+            font-size: 14px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .info-panel h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        .info-panel hr {
+            margin: 8px 0;
+        }
+
+        /* Стили для легенды (левая верхняя позиция) */
+        .legend-image {
+            position: absolute;
+            top: 80px;
+            left: 15px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(4px);
+            border-radius: 12px;
+            padding: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+            border: 1px solid rgba(0,0,0,0.1);
+            max-width: 160px;   /* ограничиваем размер на десктопе */
+            transition: all 0.2s ease;
+        }
+        .legend-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 8px;
+        }
+
+        /* Адаптация для мобильных */
+        @media (max-width: 640px) {
+            .info-panel {
+                top: auto;
+                bottom: 10px;
+                right: 10px;
+                left: 10px;
+                width: auto;
+                max-height: 35vh;
+                border-radius: 16px;
+                font-size: 13px;
+                backdrop-filter: blur(8px);
+            }
+            .legend-image {
+                top: 10px;
+                left: 10px;
+                max-width: 100px;  /* поменьше на телефонах */
+                padding: 5px;
+            }
+        }
+
+        .custom-tooltip {
+            font-weight: bold;
+            background: #333;
+            color: white;
+            border-radius: 4px;
+            padding: 4px 8px;
+        }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+
+<!-- Блок легенды (изображение) -->
+<div class="legend-image">
+    <img src="bufr.png" alt="Легенда карты ДМРЛ">
+</div>
+
+<script>
+    const map = L.map('map').setView([55.751244, 37.618423], 12);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+    }).addTo(map);
+
+    // Создаём слой для точек поверх всего
+    map.createPane('dotsPane');
+    map.getPane('dotsPane').style.zIndex = 650;
+    map.getPane('dotsPane').style.pointerEvents = 'none';
+
+    const circlesData = [
+        { id: 1, name: "Внуково", radius: 250000, coords: [55.584323, 37.249508] },
+        { id: 2, name: "Тамбов" , radius: 250000, coords: [52.776368, 41.747981]},
+        { id: 3, name: "Смоленск" , radius: 250000, coords: [54.845881, 32.003195]},
+        { id: 4, name: "Воейкво" , radius: 250000, coords: [59.94548, 30.704937]},
+        { id: 5, name: "Петрозаводск" , radius: 250000, coords: [61.818961, 34.25318]},
+        { id: 6, name: "Валдай" , radius: 250000, coords: [57.953624, 33.277061]},
+        { id: 7, name: "Вологда" , radius: 250000, coords: [59.279694, 39.924835]},
+        { id: 8, name: "Минск" , radius: 200000, coords: [53.865741, 28.04045]},
+        { id: 9, name: "Брест" , radius: 250000, coords: [52.115427, 23.898491]},
+		{ id: 10, name: "Витебск" , radius: 200000, coords: [55.140453, 30.348348]},
+		{ id: 11, name: "Гродно" , radius: 250000, coords: [53.651866, 24.049177]},
+		{ id: 12, name: "Псков" , radius: 250000, coords: [57.891838, 28.217520]},
+		{ id: 13, name: "Миллерово" , radius: 250000, coords: [48.936828, 40.41229]},
+		{ id: 14, name: "Краснодар" , radius: 250000, coords: [45.04201, 39.15256]},
+		{ id: 15, name: "Волгоград" , radius: 250000, coords: [48.792985, 44.336854]},
+		{ id: 16, name: "Ставоропль" , radius: 250000, coords: [45.113584, 42.102756]},
+		{ id: 17, name: "Сочи-Адлер" , radius: 250000, coords: [43.451626, 39.934361]},
+		{ id: 18, name: "Минеральные Воды" , radius: 250000, coords: [44.227571, 43.063868]},
+		{ id: 19, name: "Махачкала" , radius: 250000, coords: [42.96471774235783, 47.47340457502604]}
+    ];
+
+    circlesData.forEach(item => {
+        L.circle(item.coords, {
+            radius: item.radius,
+            color: 'gray',
+            weight: 1.5,
+            fillColor: 'gray',
+            fillOpacity: 0.15,
+            interactive: false
+        }).addTo(map);
+
+        const centerDot = L.circleMarker(item.coords, {
+            radius: 6,
+            color: '#333',
+            weight: 2,
+            fillColor: '#fff',
+            fillOpacity: 1,
+            pane: 'dotsPane'
+        }).addTo(map);
+        
+        centerDot.bindTooltip(item.name || "Название не указано", {
+            permanent: false,
+            direction: 'top',
+            offset: [0, -8],
+            className: 'custom-tooltip'
+        });
+    });
+
+    const bounds = L.latLngBounds(circlesData.map(d => d.coords));
+    map.fitBounds(bounds.pad(0.2));
+</script>
+</body>
+</html>
