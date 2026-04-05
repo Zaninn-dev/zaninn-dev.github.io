@@ -104,7 +104,7 @@
 
 <!-- Блок легенды (изображение) -->
 <div class="legend-image">
-    <img src="bufr.png" alt="Легенда карты ДМРЛ">
+    <img src="bufr.png">
 </div>
 
 <script>
@@ -150,7 +150,8 @@
 		{ id: 29, name: "Тюмень" , radius: 250000, coords: [56.677618, 66.341238]},
 		{ id: 30, name: "Архангельск" , radius: 250000, coords: [64.624008, 40.512119]},
 		{ id: 31, name: "Калевала" , radius: 250000, coords: [65.208344, 31.140686]},
-		{ id: 32, name: "Мурманск" , radius: 250000, coords: [68.78482159433293, 32.7582657883309]}
+		{ id: 32, name: "Мурманск" , radius: 250000, coords: [68.78482159433293, 32.7582657883309]},
+		{ id: 33, name: "Калининград" , radius: 250000, coords: [54.35503333535201, 21.31801199714662]}
     ];
 
     circlesData.forEach(item => {
@@ -159,7 +160,7 @@
             color: 'gray',
             weight: 1.5,
             fillColor: 'gray',
-            fillOpacity: 0.15,
+            fillOpacity: 0.05,
             interactive: false
         }).addTo(map);
 
