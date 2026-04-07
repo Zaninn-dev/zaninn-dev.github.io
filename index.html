@@ -4,8 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Карта ДМРЛ</title>
+    
+    <!-- Подключение Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Подключение плагина Линейки (Leaflet-Ruler) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/gokertanrisever/leaflet-ruler@master/src/leaflet-ruler.css" />
+    <script src="https://cdn.jsdelivr.net/gh/gokertanrisever/leaflet-ruler@master/src/leaflet-ruler.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -50,7 +57,7 @@
         /* Стили для легенды (левая верхняя позиция) */
         .legend-image {
             position: absolute;
-            top: 80px;
+            top: 130px; /* Немного сдвинул вниз, чтобы не перекрывать линейку */
             left: 15px;
             z-index: 1000;
             background: rgba(255, 255, 255, 0.9);
@@ -59,17 +66,43 @@
             padding: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.15);
             border: 1px solid rgba(0,0,0,0.1);
-            max-width: 160px;   /* ограничиваем размер на десктопе */
+            max-width: 160px;
             transition: all 0.2s ease;
         }
         .legend-image img {
             width: 100%;
             height: auto;
             display: block;
-            border-radius: 8px;
+            border-radius: 0px;
         }
 
-        /* Адаптация для мобильных */
+        /* Стили для меню файлов в правом нижнем углу */
+        .file-menu {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            max-height: 250px;
+            overflow-y: auto;
+            font-size: 14px;
+            min-width: 220px;
+            border: 1px solid rgba(0,0,0,0.1);
+            backdrop-filter: blur(4px);
+        }
+        .file-menu h4 { margin-top: 0; margin-bottom: 10px; }
+        .file-menu ul { list-style: none; padding: 0; margin: 0; }
+        .file-menu li { 
+            padding: 6px 8px; 
+            margin-bottom: 4px; 
+            background: #f9f9f9; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            transition: 0.2s; 
+            border: 1px solid transparent; 
+        }
+        .file-menu li:hover { background: #eee; border-color: #ddd; }
+        .file-menu li.active { background: #e0f0ff; border-color: #b3d4ff; font-weight: bold; color: #0056b3; }
+
         @media (max-width: 640px) {
             .info-panel {
                 top: auto;
@@ -85,7 +118,7 @@
             .legend-image {
                 top: 10px;
                 left: 10px;
-                max-width: 100px;  /* поменьше на телефонах */
+                max-width: 100px;
                 padding: 5px;
             }
         }
@@ -102,57 +135,127 @@
 <body>
 <div id="map"></div>
 
+<!-- Панель управления с поиском радара -->
+<div class="info-panel">
+    <h3>Поиск</h3>
+    <select id="radarSelect" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; outline: none;">
+        <option value="">Выберите радар для поиска...</option>
+    </select>
+</div>
+
 <!-- Блок легенды (изображение) -->
 <div class="legend-image">
-    <img src="bufr.png">
+    <img src="bufr.png" alt="Легенда">
 </div>
 
 <script>
     const map = L.map('map').setView([55.751244, 37.618423], 12);
+    
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
     }).addTo(map);
+
+    // Добавление линейки (Leaflet-Ruler)
+    const rulerOptions = {
+        position: 'topleft',
+        lengthUnit: {
+            display: 'км',
+            decimal: 2,
+            factor: null,
+            label: 'Расстояние:'
+        },
+        angleUnit: {
+            display: '&deg;',
+            decimal: 2,
+            factor: null,
+            label: 'Азимут:'
+        }
+    };
+    L.control.ruler(rulerOptions).addTo(map);
 
     // Создаём слой для точек поверх всего
     map.createPane('dotsPane');
     map.getPane('dotsPane').style.zIndex = 650;
     map.getPane('dotsPane').style.pointerEvents = 'none';
 
+    // Исходные данные радаров
     const circlesData = [
         { id: 1, name: "Внуково", radius: 250000, coords: [55.584323, 37.249508] },
         { id: 2, name: "Тамбов" , radius: 250000, coords: [52.776368, 41.747981]},
         { id: 3, name: "Смоленск" , radius: 250000, coords: [54.845881, 32.003195]},
-        { id: 4, name: "Воейкво" , radius: 250000, coords: [59.94548, 30.704937]},
+        { id: 4, name: "Воейково" , radius: 250000, coords: [59.94548, 30.704937]},
         { id: 5, name: "Петрозаводск" , radius: 250000, coords: [61.818961, 34.25318]},
         { id: 6, name: "Валдай" , radius: 250000, coords: [57.953624, 33.277061]},
         { id: 7, name: "Вологда" , radius: 250000, coords: [59.279694, 39.924835]},
         { id: 8, name: "Минск" , radius: 200000, coords: [53.865741, 28.04045]},
         { id: 9, name: "Брест" , radius: 250000, coords: [52.115427, 23.898491]},
-		{ id: 10, name: "Витебск" , radius: 200000, coords: [55.140453, 30.348348]},
-		{ id: 11, name: "Гродно" , radius: 250000, coords: [53.651866, 24.049177]},
-		{ id: 12, name: "Псков" , radius: 250000, coords: [57.891838, 28.217520]},
-		{ id: 13, name: "Миллерово" , radius: 250000, coords: [48.936828, 40.41229]},
-		{ id: 14, name: "Краснодар" , radius: 250000, coords: [45.04201, 39.15256]},
-		{ id: 15, name: "Волгоград" , radius: 250000, coords: [48.792985, 44.336854]},
-		{ id: 16, name: "Ставоропль" , radius: 250000, coords: [45.113584, 42.102756]},
-		{ id: 17, name: "Сочи-Адлер" , radius: 250000, coords: [43.451626, 39.934361]},
-		{ id: 18, name: "Минеральные Воды" , radius: 250000, coords: [44.227571, 43.063868]},
-		{ id: 19, name: "Махачкала" , radius: 250000, coords: [42.96471774235783, 47.47340457502604]},
-		{ id: 20, name: "Нижний Новгород" , radius: 250000, coords: [56.293943, 43.978355]},
-		{ id: 21, name: "Красный Кут" , radius: 250000, coords: [50.945545, 47.019225]},
-		{ id: 22, name: "Самара" , radius: 250000, coords: [52.971452, 49.429056]},
-		{ id: 23, name: "Саранск" , radius: 250000, coords: [54.28436070435141, 45.145609067387454]},
-		{ id: 24, name: "Казань" , radius: 250000, coords: [55.589191, 49.278343]},
-		{ id: 25, name: "Уфа" , radius: 250000, coords: [54.564953, 55.887636]},
-		{ id: 26, name: "Ижевск" , radius: 250000, coords: [56.836743, 53.456209]},
-		{ id: 27, name: "Пермь" , radius: 250000, coords: [57.896833, 56.028927]},
-		{ id: 28, name: "Челябинск" , radius: 250000, coords: [55.303704957088506, 61.499589877187994]},
-		{ id: 29, name: "Тюмень" , radius: 250000, coords: [56.677618, 66.341238]},
-		{ id: 30, name: "Архангельск" , radius: 250000, coords: [64.624008, 40.512119]},
-		{ id: 31, name: "Калевала" , radius: 250000, coords: [65.208344, 31.140686]},
-		{ id: 32, name: "Мурманск" , radius: 250000, coords: [68.78482159433293, 32.7582657883309]},
-		{ id: 33, name: "Калининград" , radius: 250000, coords: [54.35503333535201, 21.31801199714662]}
+        { id: 10, name: "Витебск" , radius: 200000, coords: [55.140453, 30.348348]},
+        { id: 11, name: "Гродно" , radius: 250000, coords: [53.651866, 24.049177]},
+        { id: 12, name: "Псков" , radius: 250000, coords: [57.891838, 28.217520]},
+        { id: 13, name: "Миллерово" , radius: 250000, coords: [48.936828, 40.41229]},
+        { id: 14, name: "Краснодар" , radius: 250000, coords: [45.04201, 39.15256]},
+        { id: 15, name: "Волгоград" , radius: 250000, coords: [48.792985, 44.336854]},
+        { id: 16, name: "Ставрополь" , radius: 250000, coords: [45.113584, 42.102756]},
+        { id: 17, name: "Сочи-Адлер" , radius: 250000, coords: [43.451626, 39.934361]},
+        { id: 18, name: "Минеральные Воды" , radius: 250000, coords: [44.227571, 43.063868]},
+        { id: 19, name: "Махачкала" , radius: 250000, coords: [42.96471774235783, 47.47340457502604]},
+        { id: 20, name: "Нижний Новгород" , radius: 250000, coords: [56.293943, 43.978355]},
+        { id: 21, name: "Красный Кут" , radius: 250000, coords: [50.945545, 47.019225]},
+        { id: 22, name: "Самара" , radius: 250000, coords: [52.971452, 49.429056]},
+        { id: 23, name: "Саранск" , radius: 250000, coords: [54.28436070435141, 45.145609067387454]},
+        { id: 24, name: "Казань" , radius: 250000, coords: [55.589191, 49.278343]},
+        { id: 25, name: "Уфа" , radius: 250000, coords: [54.564953, 55.887636]},
+        { id: 26, name: "Ижевск" , radius: 250000, coords: [56.836743, 53.456209]},
+        { id: 27, name: "Пермь" , radius: 250000, coords: [57.896833, 56.028927]},
+        { id: 28, name: "Челябинск" , radius: 250000, coords: [55.303704957088506, 61.499589877187994]},
+        { id: 29, name: "Тюмень" , radius: 250000, coords: [56.677618, 66.341238]},
+        { id: 30, name: "Архангельск" , radius: 250000, coords: [64.624008, 40.512119]},
+        { id: 31, name: "Калевала" , radius: 250000, coords: [65.208344, 31.140686]},
+        { id: 32, name: "Мурманск" , radius: 250000, coords: [68.78482159433293, 32.7582657883309]},
+        { id: 33, name: "Калининград" , radius: 250000, coords: [54.35503333535201, 21.31801199714662]}
     ];
+	
+    // Логика поиска радаров и зума
+    const radarSelect = document.getElementById('radarSelect');
+    
+    // Сортируем список по алфавиту для удобства
+    const sortedRadars = [...circlesData].sort((a, b) => a.name.localeCompare(b.name));
+    
+    sortedRadars.forEach(radar => {
+        const option = document.createElement('option');
+        option.value = radar.id;
+        option.textContent = radar.name;
+        radarSelect.appendChild(option);
+    });
+
+    radarSelect.addEventListener('change', function() {
+        if (this.value) {
+            const selectedRadar = circlesData.find(r => r.id == this.value);
+            if (selectedRadar) {
+                // Зум на координаты радара
+                map.flyTo(selectedRadar.coords, 8, { animate: true, duration: 1.5 });
+            }
+        } else {
+            // Возврат к общему виду, если ничего не выбрано
+            map.fitBounds(bounds.pad(0.2));
+        }
+    });
+
+	const geotiffBounds = [
+		[36.774101,14.036320 ],   // SW (нижний левый угол)
+		[71.323870,70.877648  ]   // NE (верхний правый угол)
+	];
+	
+	let overlayImage = 'output.png';
+	
+	// Добавляем наложение
+	const imageOverlay = L.imageOverlay(overlayImage, geotiffBounds, {
+		opacity: 0.8,
+		attribution: 'GeoTIFF данные'
+	}).addTo(map);
+	
+	// Чтобы изображение не закрывало точки:
+	imageOverlay.setZIndex(400);
 
     circlesData.forEach(item => {
         L.circle(item.coords, {
@@ -183,6 +286,54 @@
 
     const bounds = L.latLngBounds(circlesData.map(d => d.coords));
     map.fitBounds(bounds.pad(0.2));
+
+
+    // === МЕНЮ СПИСКА ФАЙЛОВ В ПРАВОМ НИЖНЕМ УГЛУ ===
+    
+    // Имитация списка файлов, который должен приходить с сервера
+    const geotiffFiles = [
+        '1330.png',
+    ];
+
+    const fileListControl = L.control({ position: 'bottomright' });
+
+    fileListControl.onAdd = function (map) {
+        const div = L.DomUtil.create('div', 'file-menu');
+        
+        // Блокируем клики и скролл карты при взаимодействии с меню
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.disableScrollPropagation(div);
+
+        let html = '<h4>Доступные снимки</h4><ul id="file-list-ul">';
+        geotiffFiles.forEach(file => {
+            const isActive = file === overlayImage ? 'class="active"' : '';
+            html += `<li ${isActive} data-file="${file}">${file}</li>`;
+        });
+        html += '</ul>';
+        
+        div.innerHTML = html;
+        return div;
+    };
+
+    fileListControl.addTo(map);
+
+    // Добавляем обработчик кликов для смены картинки
+    document.getElementById('file-list-ul').addEventListener('click', function(e) {
+        if (e.target.tagName === 'LI') {
+            const fileName = e.target.getAttribute('data-file');
+            
+            // Меняем картинку на карте
+            imageOverlay.setUrl(fileName);
+            
+            // Обновляем активный класс в меню
+            const items = this.getElementsByTagName('li');
+            for (let item of items) {
+                item.classList.remove('active');
+            }
+            e.target.classList.add('active');
+        }
+    });
+
 </script>
 </body>
 </html>
